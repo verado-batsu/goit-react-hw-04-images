@@ -1,166 +1,174 @@
 import PropTypes from 'prop-types';
-import { Component } from "react";
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 
-import { Modal } from "components/Modal/Modal";
-import { getImages } from "services/pixabayApi";
-import { ImageItem } from "./ImageGalleryItem.styled";
+import { Modal } from 'components/Modal/Modal';
+import { getImages } from 'services/pixabayApi';
+import { ImageItem } from './ImageGalleryItem.styled';
 
-export class ImageGalleryItem extends Component {
-	state = {
-		images: null,
-		modal: false,
-		modalImgUrl: '',
-	}
+export function ImageGalleryItem({ searchValue, getCardsAndLoadStatus, page }) {
+    const [images, setImages] = useState(null);
+    const [modal, setModal] = useState(false);
+    const [modalImgUrl, setModalImgUrl] = useState('');
 
-	componentDidUpdate(prevProps, prevState) {
-		const { searchValue, getCardsAndLoadStatus, page } = this.props;
+    let isFirstUpdate = useRef(true);
 
-		if (prevProps.searchValue !== searchValue) {
-			getCardsAndLoadStatus(false, true);
+    useEffect(() => {
+        if (isFirstUpdate.current) {
+            isFirstUpdate.current = false;
+            return;
+        }
 
-			document.body.scrollIntoView({
-				block: 'start',
-				behavior: 'smooth',
-			});
+        if (searchValue !== '') {
+            getCardsAndLoadStatus(false, true);
 
-			getImages(searchValue)
-				.then(res => {
-					return res.json();
-				})
-				.then(({ hits }) => {
-					if (hits.length === 0) {
-						toast.error(`За запитом '${searchValue}' не знайдено картинок!`);
-						this.setState({
-							images: null,
-						});
+            document.body.scrollIntoView({
+                block: 'start',
+                behavior: 'smooth',
+            });
 
-						getCardsAndLoadStatus(false, false);
-						return;
-					}
+            getImages(searchValue)
+                .then(res => {
+                    return res.json();
+                })
+                .then(({ hits }) => {
+                    if (hits.length === 0) {
+                        toast.error(
+                            `За запитом '${searchValue}' не знайдено картинок!`
+                        );
+                        setImages(null);
 
-					const images = hits.reduce((acc, { id, webformatURL, largeImageURL }) => {
-						const image = {
-							id,
-							webformatURL,
-							largeImageURL,
-						}
-						return [...acc, image]
-					}, [])
-					
-					// console.log('search ',images);
+                        getCardsAndLoadStatus(false, false);
+                        return;
+                    }
 
-					this.setState({ images });
+                    const images = hits.reduce(
+                        (acc, { id, webformatURL, largeImageURL }) => {
+                            const image = {
+                                id,
+                                webformatURL,
+                                largeImageURL,
+                            };
+                            return [...acc, image];
+                        },
+                        []
+                    );
 
-					getCardsAndLoadStatus(true, false);
-				})
-				.catch(error => {
-					console.log(error);
-				});
-		}
+                    setImages(images);
 
-		if (page !== 1 && prevProps.page !== page && this.state.images !== null) {
-			getCardsAndLoadStatus(false, true);
+                    getCardsAndLoadStatus(true, false);
+                })
+                .catch(error => {
+                    console.log(error);
+                });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchValue]);
 
-			getImages(searchValue, page)
-				.then(res => res.json())
-				.then(({ hits }) => {
-					const images = hits.reduce((acc, { id, webformatURL, largeImageURL }) => {
-						const image = {
-							id,
-							webformatURL,
-							largeImageURL,
-						}
-						return [...acc, image]
-					}, [])
+    useEffect(() => {
+        if (isFirstUpdate.current) {
+            isFirstUpdate.current = false;
+            return;
+        }
 
-					// console.log('page ',images);
+        if (page !== 1 && images !== null) {
+            getCardsAndLoadStatus(false, true);
 
-					this.setState(prevState => {
-						return {
-							images: [...prevState.images, ...images]
-						}
-					});
+            getImages(searchValue, page)
+                .then(res => res.json())
+                .then(({ hits }) => {
+                    const images = hits.reduce(
+                        (acc, { id, webformatURL, largeImageURL }) => {
+                            const image = {
+                                id,
+                                webformatURL,
+                                largeImageURL,
+                            };
+                            return [...acc, image];
+                        },
+                        []
+                    );
 
-					getCardsAndLoadStatus(true, false);
-				})
-				.catch(error => {
-					console.log(error)
-				});
-		}
+                    setImages(prevImages => {
+                        return [...prevImages, ...images];
+                    });
 
-		if (prevState?.images?.length !== this?.state?.images?.length && this?.state?.images?.length > 12) {
-				document.body.scrollIntoView({
-				block: 'end',
-				behavior: 'smooth',
-			})
-		}
-	}
+                    getCardsAndLoadStatus(true, false);
+                })
+                .catch(error => {
+                    console.log(error);
+                });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, searchValue]);
 
-	handleImgClick = (e) => {
-		const currentId = +(e?.target?.id);
+    useEffect(() => {
+        if (isFirstUpdate.current) {
+            isFirstUpdate.current = false;
+            return;
+        }
 
-		if (e?.target?.id === 'largeImg') {	
-			return;
-		}
+        if (images?.length > 12) {
+            document.body.scrollIntoView({
+                block: 'end',
+                behavior: 'smooth',
+            });
+        }
+    }, [images, images?.length]);
 
-		if (currentId) {
-			this.takeModalUrl(currentId);
-		}
+    function handleImgClick(e) {
+        const currentId = +e?.target?.id;
 
-		this.setState(prevState => {
-			return {
-				modal: !prevState.modal,
-			}
-		})
-	}
+        if (e?.target?.id === 'largeImg') {
+            return;
+        }
 
+        if (currentId) {
+            takeModalUrl(currentId);
+        }
 
-	takeModalUrl = (id) => {
-		const modalImg = this.state.images.find(img => {
-			return img.id === id
-		});
+        setModal(prevModal => {
+            return !prevModal;
+        });
+    }
 
-		this.setState({
-			modalImgUrl: modalImg.largeImageURL,
-		})
-	}
+    function takeModalUrl(id) {
+        const modalImg = images.find(img => {
+            return img.id === id;
+        });
 
-	render() {
-		const { images, modal, modalImgUrl } = this.state;
-		const { searchValue } = this.props;
+        setModalImgUrl(modalImg.largeImageURL);
+    }
 
-		return (
-			<>
-				{images && (
-						images.map(({ id, webformatURL}) => {
-							return (
-								<ImageItem key={id} className="gallery-item">
-									<img
-										id={id}
-										src={webformatURL}
-										alt={searchValue}
-										onClick={this.handleImgClick}
-									/>
-								</ImageItem>
-							)
-						})
-				)}
+    return (
+        <>
+            {images &&
+                images.map(({ id, webformatURL }) => {
+                    return (
+                        <ImageItem key={id} className="gallery-item">
+                            <img
+                                id={id}
+                                src={webformatURL}
+                                alt={searchValue}
+                                onClick={handleImgClick}
+                            />
+                        </ImageItem>
+                    );
+                })}
 
-				{modal &&
-					<Modal
-						url={modalImgUrl}
-						alt={searchValue}
-						onClick={this.handleImgClick}
-					/>
-				}
-			</>	
-		)
-	}
+            {modal && (
+                <Modal
+                    url={modalImgUrl}
+                    alt={searchValue}
+                    onClick={handleImgClick}
+                />
+            )}
+        </>
+    );
 }
 
 ImageGalleryItem.propTypes = {
-	searchValue: PropTypes.string.isRequired,
-	getCardsAndLoadStatus: PropTypes.func.isRequired,
-	page: PropTypes.number.isRequired,
-}
+    searchValue: PropTypes.string.isRequired,
+    getCardsAndLoadStatus: PropTypes.func.isRequired,
+    page: PropTypes.number.isRequired,
+};
