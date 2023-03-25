@@ -21,9 +21,9 @@ export function App() {
         setPage(1);
     }
 
-    function getCardsAndLoadStatus(cards, loading) {
-        setCards(cards);
-        setLoading(loading);
+    function getCardsAndLoadStatus(newCards, loadingStatus) {
+        setCards(newCards);
+        setLoading(loadingStatus);
     }
 
     function loadMoreClick(e) {
@@ -40,7 +40,7 @@ export function App() {
             <ImageGallery>
                 <ImageGalleryItem
                     searchValue={searchValue}
-                    getCardsAndLoadStatus={getCardsAndLoadStatus}
+                    getStatus={getCardsAndLoadStatus}
                     page={page}
                 />
             </ImageGallery>
