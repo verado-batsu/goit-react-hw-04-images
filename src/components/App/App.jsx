@@ -1,29 +1,86 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Triangle } from 'react-loader-spinner';
+import { toast } from 'react-toastify';
 
 import { Container } from './App.styled';
 
 import { Searchbar } from 'components/Searchbar/Searchbar';
 import { ImageGallery } from 'components/ImageGallery/ImageGallery';
-import { ImageGalleryItem } from 'components/ImageGalleryItem/ImageGalleryItem';
 import { Button } from 'components/Button/Button';
 
+import { getImages } from 'services/pixabayApi';
+
 export function App() {
+    const [images, setImages] = useState([]);
     const [searchValue, setSearchValue] = useState('');
-    const [cards, setCards] = useState(false);
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [isRepeatSearch, setIsRepeatSearch] = useState(false);
+
+    useEffect(() => {
+        if (searchValue === '') return;
+        if (isRepeatSearch) return;
+
+        setLoading(true);
+        getImages(searchValue, page)
+            .then(res => res.json())
+            .then(({ hits }) => {
+                if (hits.length === 0) {
+                    toast.error(
+                        `За запитом '${searchValue}' не знайдено картинок!`
+                    );
+                    setImages([]);
+                    setLoading(false);
+                    return;
+                }
+
+                const images = hits.map(
+                    ({ id, webformatURL, largeImageURL }) => ({
+                        id,
+                        webformatURL,
+                        largeImageURL,
+                    })
+                );
+
+                if (page === 1) {
+                    document.body.scrollIntoView({
+                        block: 'start',
+                        behavior: 'smooth',
+                    });
+                    setImages(images);
+                } else {
+                    setImages(prevImages => {
+                        return [...prevImages, ...images];
+                    });
+                }
+                setLoading(false);
+            })
+            .catch(error => {
+                console.log(error);
+            });
+    }, [searchValue, page, isRepeatSearch]);
+
+    useLayoutEffect(() => {
+        if (images.length > 12) {
+            document.body.scrollIntoView({
+                block: 'end',
+                behavior: 'smooth',
+            });
+        }
+    }, [images]);
 
     function getSearchValue(value) {
-        setSearchValue(value);
+        setSearchValue(prevSearchValue => {
+            if (prevSearchValue === value) {
+                setIsRepeatSearch(true);
+            } else {
+                setIsRepeatSearch(false);
+            }
+            return value;
+        });
         setPage(1);
-    }
-
-    function getCardsAndLoadStatus(newCards, loadingStatus) {
-        setCards(newCards);
-        setLoading(loadingStatus);
     }
 
     function loadMoreClick(e) {
@@ -37,13 +94,7 @@ export function App() {
             <ToastContainer autoClose={3000} />
 
             <Searchbar onSubmit={getSearchValue} />
-            <ImageGallery>
-                <ImageGalleryItem
-                    searchValue={searchValue}
-                    getStatus={getCardsAndLoadStatus}
-                    page={page}
-                />
-            </ImageGallery>
+            <ImageGallery searchValue={searchValue} images={images} />
 
             <Triangle
                 height="60"
@@ -55,7 +106,7 @@ export function App() {
                 visible={loading}
             />
 
-            {cards && <Button onClick={loadMoreClick} />}
+            {images.length > 0 && <Button onClick={loadMoreClick} />}
         </Container>
     );
 }
